@@ -166,7 +166,8 @@
   <section>
     <div class="section-head">
       <h2>Received</h2>
-      <button id="downloadAll" class="primary" hidden>Download all</button>
+      <button id="downloadZip" class="primary" hidden>Download as zip</button>
+      <button id="downloadEach" hidden>Download separately</button>
       <button id="clearAll" hidden>Clear all</button>
     </div>
     <div class="inbox" id="inbox"></div>
@@ -466,8 +467,12 @@
   const received = new Map(); // fileId -> { name, size, el }
   function updateInboxButtons() {
     const n = received.size;
-    $('downloadAll').hidden = n === 0;
-    $('downloadAll').textContent = n > 1 ? `Download all (${n})` : 'Download';
+    // With one file a zip is pointless, so only a plain "Download" is shown.
+    $('downloadZip').hidden = n < 2;
+    $('downloadZip').textContent = `Download as zip (${n})`;
+    $('downloadEach').hidden = n === 0;
+    $('downloadEach').textContent = n > 1 ? 'Download separately' : 'Download';
+    $('downloadEach').classList.toggle('primary', n === 1);
     $('clearAll').hidden = $('inbox').children.length === 0;
   }
   function addItem(el) {
@@ -486,13 +491,21 @@
     a.href = href; a.download = name || '';
     document.body.appendChild(a); a.click(); a.remove();
   }
-  $('downloadAll').onclick = () => {
+  const fileUrl = (id) => `/api/file/${id}?peer=${encodeURIComponent(myId)}`;
+  $('downloadEach').onclick = async () => {
+    // Oldest first, matching the order they arrived. A short gap between files keeps
+    // browsers from dropping downloads; Chrome may ask once to allow multiple downloads.
     const list = [...received.entries()];
-    if (!list.length) return;
-    if (list.length === 1) {
-      const [id, f] = list[0];
-      return triggerDownload(`/api/file/${id}?peer=${encodeURIComponent(myId)}`, f.name);
+    if (list.length > 1) toast(`Downloading ${list.length} files — allow multiple downloads if your browser asks`);
+    for (let i = 0; i < list.length; i++) {
+      const [id, f] = list[i];
+      triggerDownload(fileUrl(id), f.name);
+      if (i < list.length - 1) await new Promise((r) => setTimeout(r, 600));
     }
+  };
+  $('downloadZip').onclick = () => {
+    const list = [...received.entries()];
+    if (list.length < 2) return;
     const total = list.reduce((s, [, f]) => s + f.size, 0);
     if (total > 4000 * 1024 * 1024) return toast('Over 4 GB in total — download the files one by one', true);
     const ids = list.map(([id]) => id).join(',');
