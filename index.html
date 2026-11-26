@@ -43,6 +43,7 @@
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     min-height: 100vh;
   }
+  [hidden] { display: none !important; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
   header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
   header h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
@@ -59,16 +60,6 @@
   .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .section-head h2 { margin: 0; margin-right: auto; }
   .section-head button { padding: 5px 10px; font-size: 13px; }
-  .speed { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .stat { background: var(--surface-2); border-radius: 10px; padding: 12px; min-width: 0; }
-  .stat .label { font-size: 12px; color: var(--muted); }
-  .stat .value { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  .stat .unit { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 3px; }
-  .stat.active .value { color: var(--accent); }
-  .speed-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .speed-foot .hint { flex: 1; min-width: 200px; }
-  @media (max-width: 420px) { .stat .value { font-size: 19px; } .stat { padding: 10px; } }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
   .connect { padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; }
   .connect code {
@@ -76,8 +67,8 @@
     padding: 4px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent;
   }
   .connect code:hover { border-color: var(--border); }
-  .peers { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-  .peer { padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; transition: border-color .15s, background .15s; }
+  .peers { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .peer { padding: 16px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s, background .15s; }
   .peer.drag { border-color: var(--accent); background: var(--accent-soft); }
   .peer-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .icon {
@@ -88,6 +79,7 @@
   .peer-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .peer-dev { font-size: 12px; color: var(--muted); }
   .actions { display: flex; gap: 8px; }
+  .actions button { flex: 1; padding: 7px 8px; }
   button {
     font: inherit; font-size: 14px; border-radius: 8px; padding: 7px 12px; cursor: pointer;
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
@@ -95,15 +87,12 @@
   button:hover { filter: brightness(.97); }
   button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
   button:disabled { opacity: .5; cursor: default; }
-  .actions button { flex: 1; }
-  .progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; display: none; }
-  .progress.show { display: block; }
-  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
-  .progress-label { font-size: 12px; color: var(--muted); display: none; }
-  .progress-label.show { display: block; }
+  .progress { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .progress.ok > div { background: var(--ok); }
   .hint { font-size: 12px; color: var(--muted); }
   .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
-  .inbox { display: flex; flex-direction: column; gap: 10px; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
   .item { padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; }
   .item .body { flex: 1; min-width: 0; }
   .item .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
@@ -111,11 +100,19 @@
     margin: 0; white-space: pre-wrap; word-break: break-word; font: 14px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
     max-height: 220px; overflow: auto; background: var(--surface-2); padding: 8px 10px; border-radius: 8px;
   }
-  .item .fname { font-weight: 600; word-break: break-all; }
-  .item img.thumb { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 8px; }
-  .item .btns { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .item .title { font-weight: 600; word-break: break-all; }
+  .item .state { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .item .state.ok { color: var(--ok); }
+  .item .state.bad { color: var(--danger); }
+  .item .btns { display: flex; flex-direction: column; gap: 6px; flex: none; min-width: 120px; }
   .item .btns a { text-decoration: none; }
   .item .btns a button { width: 100%; }
+  .item.dead .title { color: var(--muted); }
+  details.files { margin-top: 6px; font-size: 13px; }
+  details.files summary { cursor: pointer; color: var(--muted); }
+  details.files ul { margin: 6px 0 0; padding: 0 0 0 18px; max-height: 220px; overflow: auto; color: var(--muted); }
+  details.files li { word-break: break-all; }
+  details.files li button { padding: 1px 8px; font-size: 12px; margin-left: 6px; }
   dialog {
     border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text);
     padding: 0; width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow);
@@ -128,6 +125,15 @@
     border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-height: 160px; resize: vertical; width: 100%;
   }
   .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .speed { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--surface-2); border-radius: 10px; padding: 12px; min-width: 0; }
+  .stat .label { font-size: 12px; color: var(--muted); }
+  .stat .value { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat .unit { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+  .stat.active .value { color: var(--accent); }
+  .speed-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .speed-foot .hint { flex: 1; min-width: 200px; }
   .toasts { position: fixed; bottom: 16px; left: 16px; right: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; z-index: 10; }
   .toast {
     background: var(--text); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 14px;
@@ -138,7 +144,11 @@
   @media (max-width: 560px) {
     .me { margin-left: 0; width: 100%; }
     .me input { flex: 1; width: auto; }
+    .item { flex-direction: column; }
+    .item .btns { flex-direction: row; flex-wrap: wrap; width: 100%; }
+    .item .btns > * { flex: 1; }
   }
+  @media (max-width: 420px) { .stat .value { font-size: 19px; } .stat { padding: 10px; } }
 </style>
 </head>
 <body>
@@ -151,7 +161,7 @@
     </label>
   </header>
 
-  <div class="card connect" id="connect">
+  <div class="card connect">
     <span>Open this on other devices on the same network:</span>
     <span id="addrs" class="hint">…</span>
   </div>
@@ -160,7 +170,13 @@
     <h2>Devices nearby</h2>
     <div class="peers" id="peers"></div>
     <div class="card empty" id="noPeers">No other devices yet. Open one of the addresses above on another phone, tablet or computer.</div>
-    <p class="hint">Drop files onto a device to send them. Paste (Ctrl/⌘+V) anywhere to send clipboard contents.</p>
+    <p class="hint">Drop files or folders onto a device to send them. Paste (Ctrl/⌘+V) anywhere to send clipboard contents.</p>
+  </section>
+
+  <section id="sendingSection" hidden>
+    <h2>Sending</h2>
+    <p class="hint" style="margin-top:-4px">Files stream straight from this page to the other device and are never stored on the host. Keep this page open, and this device awake, until they're delivered.</p>
+    <div class="list" id="outbox"></div>
   </section>
 
   <section>
@@ -170,7 +186,7 @@
       <button id="downloadEach" hidden>Download separately</button>
       <button id="clearAll" hidden>Clear all</button>
     </div>
-    <div class="inbox" id="inbox"></div>
+    <div class="list" id="inbox"></div>
     <div class="card empty" id="noInbox">Nothing received yet.</div>
   </section>
 
@@ -183,7 +199,7 @@
         <div class="stat" id="statUp"><div class="label">Upload</div><div class="value">–<span class="unit">Mbps</span></div></div>
       </div>
       <div class="speed-foot">
-        <span class="hint" id="speedHint">Measures the link between this device and the host computer running LAN Drop. A transfer between two devices runs at roughly the slower of the sender's upload and the receiver's download.</span>
+        <span class="hint">Measures the link between this device and the host computer running LAN Drop. A transfer between two devices runs at roughly the slower of the sender's upload and the receiver's download.</span>
         <button class="primary" id="speedBtn">Run speed test</button>
       </div>
     </div>
@@ -191,12 +207,12 @@
 </div>
 
 <dialog id="textDialog">
-  <form method="dialog" id="textForm">
+  <form method="dialog">
     <h3 id="textTitle">Send text</h3>
     <textarea id="textInput" placeholder="Type or paste text, a link, a code snippet…"></textarea>
     <div class="row">
       <button value="cancel" formnovalidate>Cancel</button>
-      <button value="send" class="primary" id="textSend">Send</button>
+      <button value="send" class="primary">Send</button>
     </div>
   </form>
 </dialog>
@@ -210,19 +226,37 @@
 </dialog>
 
 <input type="file" id="fileInput" multiple hidden>
+<input type="file" id="folderInput" webkitdirectory hidden>
 <div class="toasts" id="toasts"></div>
 
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
+  const MAX_SEPARATE = 50; // more files than this: offer the zip instead
+
+  // ---------- storage ----------
+  const store = (area) => ({
+    get(k) { try { return area().getItem(k); } catch { return null; } },
+    set(k, v) { try { area().setItem(k, v); } catch {} },
+  });
+  const local = store(() => localStorage);
+  const session = store(() => sessionStorage);
+  const randHex = (bytes) => [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
 
   // ---------- identity ----------
+  // The id is public; the secret proves to the server that requests come from this tab.
+  // Both live in sessionStorage so a reload or reconnect keeps the same identity
+  // (and incoming offers survive), while each tab is its own device.
+  let myId = session.get('landrop.id');
+  let mySecret = session.get('landrop.secret');
+  function newIdentity() {
+    myId = randHex(8); mySecret = randHex(24);
+    session.set('landrop.id', myId); session.set('landrop.secret', mySecret);
+  }
+  if (!myId || !mySecret) newIdentity();
+
   const ADJ = ['Swift','Quiet','Brave','Sunny','Lucky','Clever','Calm','Bright','Bold','Gentle','Happy','Mellow','Nimble','Witty','Cosmic','Rapid'];
   const ANIMAL = ['Otter','Fox','Panda','Falcon','Koala','Lynx','Heron','Badger','Dolphin','Tiger','Owl','Moose','Gecko','Raven','Wolf','Beaver'];
-  const store = {
-    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
-  };
   function detectDevice() {
     const ua = navigator.userAgent;
     let os = 'Device', kind = 'desktop';
@@ -237,19 +271,22 @@
       : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
     return `${kind}|${os}${browser ? ' · ' + browser : ''}`;
   }
-  let myName = store.get('landrop.name');
+  let myName = local.get('landrop.name');
   if (!myName) {
     myName = `${ADJ[Math.random() * ADJ.length | 0]} ${ANIMAL[Math.random() * ANIMAL.length | 0]}`;
-    store.set('landrop.name', myName);
+    local.set('landrop.name', myName);
   }
   const myDevice = detectDevice();
   $('myName').value = myName;
 
   // ---------- state ----------
-  let myId = null;
   let peers = [];
   let es = null;
   let unread = 0;
+  /** transferId -> { id, to, toName, files: [{file, path}], total, sent: number[], done: Set, state, el, xhrs: Map, samples } */
+  const outgoing = new Map();
+  /** transferId -> { offer, el, live } */
+  const incoming = new Map();
 
   // ---------- helpers ----------
   function toast(msg, err) {
@@ -257,7 +294,7 @@
     t.className = 'toast' + (err ? ' err' : '');
     t.textContent = msg;
     $('toasts').appendChild(t);
-    setTimeout(() => t.remove(), 3500);
+    setTimeout(() => t.remove(), 4000);
   }
   function fmtSize(n) {
     if (n < 1024) return n + ' B';
@@ -266,6 +303,12 @@
     return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
   }
   function fmtTime(t) { return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  function fmtEta(s) {
+    if (!isFinite(s) || s <= 0) return '';
+    if (s < 60) return `${Math.ceil(s)} s left`;
+    if (s < 3600) return `${Math.ceil(s / 60)} min left`;
+    return `${Math.floor(s / 3600)} h ${Math.ceil((s % 3600) / 60)} min left`;
+  }
   async function copyText(text) {
     // navigator.clipboard only works on https/localhost; fall back for plain http LAN addresses.
     try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch {}
@@ -276,16 +319,28 @@
     ta.remove(); return ok;
   }
   async function api(path, body) {
-    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: mySecret, ...body }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'Request failed');
     return j;
+  }
+  function triggerDownload(href) {
+    const a = document.createElement('a');
+    a.href = href; a.download = '';
+    document.body.appendChild(a); a.click(); a.remove();
   }
   function bumpUnread() {
     if (!document.hidden) return;
     unread++; document.title = `(${unread}) LAN Drop`;
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { unread = 0; document.title = 'LAN Drop'; } });
+  const peerName = (id) => (peers.find((p) => p.id === id) || {}).name || 'device';
+  const describeFiles = (paths) => {
+    if (paths.length === 1) return paths[0].split('/').pop();
+    const tops = new Set(paths.map((p) => (p.includes('/') ? p.split('/')[0] : null)));
+    if (tops.size === 1 && !tops.has(null)) return `${[...tops][0]}/ (${paths.length.toLocaleString()} files)`;
+    return `${paths.length.toLocaleString()} files`;
+  };
 
   const ICONS = {
     phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
@@ -296,19 +351,40 @@
   // ---------- connection ----------
   function connect() {
     if (es) es.close();
-    const q = new URLSearchParams({ name: myName, device: myDevice });
+    const q = new URLSearchParams({ id: myId, secret: mySecret, name: myName, device: myDevice });
     es = new EventSource('/events?' + q);
     es.addEventListener('hello', (e) => {
       const d = JSON.parse(e.data);
-      myId = d.id;
       setStatus(true);
       renderAddrs(d.addresses);
+      // The server still lists transfers this tab can no longer serve (e.g. after a reload): cancel them.
+      const stale = d.outgoing.filter((id) => !outgoing.has(id));
+      if (stale.length) api('/api/cancel', { transferId: stale }).catch(() => {});
+      // Offers that disappeared while we were disconnected.
+      for (const [id, inc] of incoming) if (inc.live && !d.incoming.includes(id)) markIncomingDead(id, 'No longer available');
     });
-    es.addEventListener('peers', (e) => { peers = JSON.parse(e.data).filter((p) => p.id !== myId); renderPeers(); });
+    es.addEventListener('peers', (e) => { peers = JSON.parse(e.data).filter((p) => p.id !== myId); renderPeers(); renderOutgoingNames(); });
     es.addEventListener('text', (e) => { const d = JSON.parse(e.data); addText(d); toast(`Text from ${d.fromName}`); bumpUnread(); });
-    es.addEventListener('file', (e) => { const d = JSON.parse(e.data); addFile(d); toast(`${d.name} from ${d.fromName}`); bumpUnread(); });
-    es.onerror = () => { setStatus(false); }; // EventSource reconnects automatically
+    es.addEventListener('offer', (e) => onOffer(JSON.parse(e.data)));
+    es.addEventListener('pull', (e) => onPull(JSON.parse(e.data)));
+    es.addEventListener('pull-cancel', (e) => onPullCancel(JSON.parse(e.data)));
+    es.addEventListener('file-done', (e) => onFileDone(JSON.parse(e.data)));
+    es.addEventListener('cancel', (e) => onCancel(JSON.parse(e.data)));
+    es.onerror = async () => {
+      if (unloading) return; // the page is going away (e.g. reload) — keep the identity
+      setStatus(false);
+      if (es.readyState !== EventSource.CLOSED) return; // EventSource retries by itself
+      // Closed for good: either the server refused us or it is down. Only a confirmed
+      // identity clash warrants a new identity; otherwise just try again.
+      try {
+        const r = await fetch(`/api/check?id=${myId}&secret=${mySecret}`, { cache: 'no-store' });
+        if (r.status === 409) newIdentity();
+      } catch {}
+      setTimeout(connect, 2000);
+    };
   }
+  let unloading = false;
+  window.addEventListener('pagehide', () => { unloading = true; });
   function setStatus(on) {
     $('dot').classList.toggle('on', on);
     $('statusText').textContent = on ? 'Online' : 'Reconnecting…';
@@ -321,12 +397,13 @@
     for (const a of addrs) {
       const c = document.createElement('code');
       c.textContent = a; c.title = 'Click to copy';
-      c.onclick = async () => toast((await copyText(a)) ? 'Address copied' : 'Copy failed', false);
+      c.onclick = async () => toast((await copyText(a)) ? 'Address copied' : 'Copy failed');
       box.appendChild(c); box.appendChild(document.createTextNode(' '));
     }
   }
 
   // ---------- peers ----------
+  const canPickFolder = 'webkitdirectory' in document.createElement('input') && !/iPhone|iPad|iPod/.test(navigator.userAgent);
   function renderPeers() {
     const grid = $('peers');
     $('noPeers').style.display = peers.length ? 'none' : '';
@@ -349,70 +426,203 @@
     el.innerHTML = `
       <div class="peer-head"><div class="icon"></div>
         <div style="min-width:0"><div class="peer-name"></div><div class="peer-dev"></div></div></div>
-      <div class="actions"><button class="primary" data-a="file">Send files</button><button data-a="text">Send text</button></div>
-      <div class="progress"><div></div></div><div class="progress-label"></div>`;
-    el.querySelector('[data-a=file]').onclick = () => pickFiles(p.id);
+      <div class="actions"><button class="primary" data-a="file">Files</button>${canPickFolder ? '<button data-a="folder">Folder</button>' : ''}<button data-a="text">Text</button></div>`;
+    el.querySelector('[data-a=file]').onclick = () => pick('fileInput', p.id);
+    if (canPickFolder) el.querySelector('[data-a=folder]').onclick = () => pick('folderInput', p.id);
     el.querySelector('[data-a=text]').onclick = () => openText(p.id);
     let depth = 0;
     el.addEventListener('dragenter', (e) => { e.preventDefault(); depth++; el.classList.add('drag'); });
     el.addEventListener('dragover', (e) => e.preventDefault());
     el.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; el.classList.remove('drag'); } });
-    el.addEventListener('drop', (e) => {
+    el.addEventListener('drop', async (e) => {
       e.preventDefault(); depth = 0; el.classList.remove('drag');
-      if (e.dataTransfer.files.length) sendFiles(p.id, [...e.dataTransfer.files]);
-      else { const t = e.dataTransfer.getData('text'); if (t) sendText(p.id, t); }
+      const text = e.dataTransfer.getData('text');
+      const entries = await entriesFromDrop(e.dataTransfer);
+      if (entries.length) sendFiles(p.id, entries);
+      else if (text) sendText(p.id, text);
     });
     return el;
   }
-  const peerName = (id) => (peers.find((p) => p.id === id) || {}).name || 'device';
 
   // Prevent the browser from opening files dropped outside a card.
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
 
-  // ---------- sending ----------
-  let fileTarget = null;
-  function pickFiles(id) { fileTarget = id; $('fileInput').value = ''; $('fileInput').click(); }
-  $('fileInput').onchange = () => { if (fileTarget && $('fileInput').files.length) sendFiles(fileTarget, [...$('fileInput').files]); };
+  // ---------- picking files ----------
+  let pickTarget = null;
+  function pick(inputId, to) { pickTarget = to; $(inputId).value = ''; $(inputId).click(); }
+  for (const id of ['fileInput', 'folderInput']) {
+    $(id).onchange = () => {
+      const list = [...$(id).files].map((file) => ({ file, path: file.webkitRelativePath || file.name }));
+      if (pickTarget && list.length) sendFiles(pickTarget, list);
+      else if (pickTarget && id === 'folderInput') toast('That folder is empty', true);
+    };
+  }
 
-  const queues = new Map(); // peerId -> promise chain, so files to one device go one at a time
-  function sendFiles(to, list) {
-    const prev = queues.get(to) || Promise.resolve();
-    const next = prev.then(async () => {
-      for (let i = 0; i < list.length; i++) {
-        try { await uploadOne(to, list[i], i + 1, list.length); }
-        catch (err) { toast(`${list[i].name}: ${err.message}`, true); }
+  /** Files and whole folders from a drop, with their relative paths. */
+  async function entriesFromDrop(dt) {
+    // webkitGetAsEntry must be called synchronously, before the first await.
+    const roots = [...dt.items].filter((i) => i.kind === 'file').map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (!roots.length) return [...dt.files].map((file) => ({ file, path: file.name }));
+    const out = [];
+    async function walk(entry) {
+      if (entry.isFile) {
+        const file = await new Promise((res, rej) => entry.file(res, rej));
+        out.push({ file, path: entry.fullPath.replace(/^\/+/, '') });
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        for (;;) {
+          const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+          if (!batch.length) break;
+          for (const e of batch) await walk(e);
+        }
       }
-    });
-    queues.set(to, next);
+    }
+    try { for (const r of roots) await walk(r); }
+    catch (err) { toast('Could not read some dropped files: ' + err.message, true); }
+    return out;
   }
-  function uploadOne(to, file, n, total) {
-    return new Promise((resolve, reject) => {
-      const card = document.querySelector(`.peer[data-id="${to}"]`);
-      const bar = card && card.querySelector('.progress');
-      const label = card && card.querySelector('.progress-label');
-      const show = (on) => { if (bar) { bar.classList.toggle('show', on); label.classList.toggle('show', on); } };
-      const q = new URLSearchParams({ from: myId, to, name: file.name || 'pasted-file', type: file.type || '' });
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/file?' + q);
-      xhr.upload.onprogress = (e) => {
-        if (!bar || !e.lengthComputable) return;
-        show(true);
-        const pct = e.loaded / e.total * 100;
-        bar.firstElementChild.style.width = pct + '%';
-        label.textContent = `${total > 1 ? `(${n}/${total}) ` : ''}${file.name} — ${fmtSize(e.loaded)} / ${fmtSize(e.total)}`;
+
+  // ---------- sending: offers ----------
+  async function sendFiles(to, entries) {
+    try {
+      const { transferId } = await api('/api/offer', {
+        to,
+        files: entries.map((e) => ({ path: e.path, size: e.file.size, type: e.file.type })),
+      });
+      const total = entries.reduce((s, e) => s + e.file.size, 0);
+      const out = {
+        id: transferId, to, toName: peerName(to), files: entries, total,
+        sent: entries.map(() => 0), done: new Set(), state: 'waiting', xhrs: new Map(), samples: [],
       };
-      xhr.onload = () => {
-        show(false);
-        if (xhr.status === 200) { toast(`Sent ${file.name} to ${peerName(to)}`); resolve(); }
-        else { let m = 'Upload failed'; try { m = JSON.parse(xhr.responseText).error || m; } catch {} reject(new Error(m)); }
-      };
-      xhr.onerror = () => { show(false); reject(new Error('Network error')); };
-      xhr.send(file);
-    });
+      out.el = outgoingCard(out);
+      outgoing.set(transferId, out);
+      $('outbox').prepend(out.el);
+      $('sendingSection').hidden = false;
+      renderOutgoing(out);
+      toast(`Offered ${describeFiles(entries.map((e) => e.path))} to ${out.toName}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
   }
+
+  function outgoingCard(out) {
+    const el = document.createElement('div');
+    el.className = 'card item';
+    el.innerHTML = `<div class="body"><div class="meta"></div><div class="title"></div><div class="state"></div>
+      <div class="progress"><div></div></div></div>
+      <div class="btns"><button data-a="cancel">Cancel</button></div>`;
+    el.querySelector('.title').textContent = describeFiles(out.files.map((f) => f.path));
+    el.querySelector('[data-a=cancel]').onclick = () => {
+      if (isActive(out)) api('/api/cancel', { transferId: out.id }).catch(() => {});
+      finishOutgoing(out, out.state === 'delivered' ? 'delivered' : 'cancelled');
+      el.remove();
+      $('sendingSection').hidden = !$('outbox').children.length;
+      outgoing.delete(out.id);
+    };
+    return el;
+  }
+  const isActive = (out) => out.state === 'waiting' || out.state === 'sending';
+
+  function renderOutgoingNames() {
+    for (const out of outgoing.values()) {
+      const p = peers.find((x) => x.id === out.to);
+      if (p) out.toName = p.name;
+      renderOutgoing(out);
+    }
+  }
+
+  function renderOutgoing(out) {
+    const el = out.el;
+    const delivered = out.sent.reduce((a, b) => a + b, 0);
+    el.querySelector('.meta').textContent = `To ${out.toName} · ${fmtSize(out.total)}`;
+    const bar = el.querySelector('.progress');
+    const state = el.querySelector('.state');
+    state.className = 'state';
+    bar.classList.toggle('ok', out.state === 'delivered');
+    bar.hidden = out.state === 'waiting' || out.state === 'cancelled' || out.state === 'declined';
+    bar.firstElementChild.style.width = (out.total ? Math.min(100, delivered / out.total * 100) : 100) + '%';
+    const btn = el.querySelector('[data-a=cancel]');
+    btn.textContent = isActive(out) ? 'Cancel' : 'Dismiss';
+    if (out.state === 'waiting') state.textContent = `Waiting for ${out.toName} to download…`;
+    else if (out.state === 'sending') {
+      // Speed over the last ~5 seconds.
+      const now = performance.now();
+      out.samples.push([now, delivered]);
+      while (out.samples.length > 2 && now - out.samples[0][0] > 5000) out.samples.shift();
+      const [t0, b0] = out.samples[0];
+      const rate = now - t0 > 500 ? (delivered - b0) / ((now - t0) / 1000) : 0;
+      const parts = [`${fmtSize(delivered)} of ${fmtSize(out.total)}`];
+      if (rate > 0) parts.push(`${fmtSize(rate)}/s`, fmtEta((out.total - delivered) / rate));
+      if (!out.xhrs.size) parts.push('paused — waiting for the other device');
+      state.textContent = parts.filter(Boolean).join(' · ');
+    } else if (out.state === 'delivered') { state.textContent = 'Delivered'; state.classList.add('ok'); }
+    else if (out.state === 'declined') { state.textContent = `${out.toName} declined`; state.classList.add('bad'); }
+    else if (out.state === 'cancelled') { state.textContent = 'Cancelled'; state.classList.add('bad'); }
+    else if (out.state === 'sender-left') { state.textContent = 'Expired — this page was away too long'; state.classList.add('bad'); }
+  }
+
+  function finishOutgoing(out, state) {
+    out.state = state;
+    for (const xhr of out.xhrs.values()) xhr.abort();
+    out.xhrs.clear();
+    renderOutgoing(out);
+  }
+
+  // Redraw progress at a steady pace instead of on every progress event.
+  setInterval(() => { for (const out of outgoing.values()) if (out.state === 'sending') renderOutgoing(out); }, 500);
+
+  // ---------- sending: the server asks for bytes ----------
+  function onPull({ pullId, transferId, index, offset }) {
+    const out = outgoing.get(transferId);
+    if (!out || !isActive(out)) return; // the server retries a few times, then gives up
+    const entry = out.files[index];
+    if (!entry) return;
+    const old = out.xhrs.get(pullId);
+    if (old) old.abort();
+    if (out.state === 'waiting') out.state = 'sending';
+    const xhr = new XMLHttpRequest();
+    out.xhrs.set(pullId, xhr);
+    xhr.open('POST', `/api/push/${pullId}?k=${mySecret}&offset=${offset}`);
+    xhr.upload.onprogress = (e) => { out.sent[index] = Math.max(out.sent[index], offset + e.loaded); };
+    const done = () => { if (out.xhrs.get(pullId) === xhr) out.xhrs.delete(pullId); };
+    xhr.onload = done; xhr.onerror = done; xhr.onabort = done;
+    // A slice of a File is read from disk as it uploads; nothing is loaded into memory.
+    xhr.send(entry.file.slice(offset));
+  }
+  function onPullCancel({ pullId }) {
+    for (const out of outgoing.values()) {
+      const xhr = out.xhrs.get(pullId);
+      if (xhr) { out.xhrs.delete(pullId); xhr.abort(); }
+    }
+  }
+  function onFileDone({ transferId, index }) {
+    const out = outgoing.get(transferId);
+    if (!out) return;
+    out.done.add(index);
+    out.sent[index] = out.files[index].file.size;
+    if (out.done.size === out.files.length && isActive(out)) {
+      out.state = 'delivered';
+      toast(`Delivered ${describeFiles(out.files.map((f) => f.path))} to ${out.toName}`);
+    }
+    renderOutgoing(out);
+  }
+  function onCancel({ transferId, by }) {
+    const out = outgoing.get(transferId);
+    if (out && isActive(out)) {
+      finishOutgoing(out, by === 'receiver' ? 'declined' : by === 'sender-left' ? 'sender-left' : 'cancelled');
+    }
+    if (incoming.has(transferId)) {
+      markIncomingDead(transferId, by === 'receiver' ? 'Declined' : by === 'sender-left' ? "Expired — the sender's page closed" : 'Cancelled by sender');
+    }
+  }
+
+  window.addEventListener('beforeunload', (e) => {
+    if ([...outgoing.values()].some(isActive)) { e.preventDefault(); e.returnValue = ''; }
+  });
+
   async function sendText(to, text) {
-    try { await api('/api/text', { from: myId, to, text }); toast(`Text sent to ${peerName(to)}`); }
+    try { await api('/api/text', { to, text }); toast(`Text sent to ${peerName(to)}`); }
     catch (err) { toast(err.message, true); }
   }
 
@@ -434,11 +644,10 @@
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('textDialog').close('send'); }
   });
 
-  // target picker (for paste)
+  // Target picker for paste. Always asks, even with one device, so nothing is sent by accident.
   function chooseTarget(title) {
     return new Promise((resolve) => {
       if (!peers.length) { toast('No other devices online', true); return resolve(null); }
-      if (peers.length === 1) return resolve(peers[0].id);
       $('pickTitle').textContent = title;
       const list = $('pickList'); list.textContent = '';
       let chosen = null;
@@ -458,69 +667,60 @@
     const text = e.clipboardData?.getData('text/plain');
     if (!fileList.length && !text) return;
     e.preventDefault();
-    const to = await chooseTarget(fileList.length ? `Send ${fileList.length} pasted file(s) to…` : 'Send pasted text to…');
-    if (!to) return;
-    if (fileList.length) sendFiles(to, fileList); else openText(to, text);
+    if (fileList.length) {
+      const to = await chooseTarget(`Send ${fileList.length} pasted file${fileList.length > 1 ? 's' : ''} to…`);
+      if (to) sendFiles(to, fileList.map((file, i) => ({ file, path: file.name || `pasted-${i + 1}` })));
+    } else {
+      const to = peers.length === 1 ? peers[0].id : await chooseTarget('Send pasted text to…');
+      if (to) openText(to, text); // the text dialog is the confirmation
+    }
   });
 
   // ---------- receiving ----------
-  const received = new Map(); // fileId -> { name, size, el }
+  const fileUrl = (tid, i) => `/api/dl/${tid}/${i}?k=${mySecret}`;
+  const zipUrl = (tids) => `/api/zip?k=${mySecret}&t=${tids.join(',')}`;
+  const liveIncoming = () => [...incoming.values()].filter((i) => i.live);
+
   function updateInboxButtons() {
-    const n = received.size;
-    // With one file a zip is pointless, so only a plain "Download" is shown.
-    $('downloadZip').hidden = n < 2;
-    $('downloadZip').textContent = `Download as zip (${n})`;
-    $('downloadEach').hidden = n === 0;
-    $('downloadEach').textContent = n > 1 ? 'Download separately' : 'Download';
-    $('downloadEach').classList.toggle('primary', n === 1);
+    const live = liveIncoming();
+    const files = live.reduce((s, i) => s + i.offer.files.length, 0);
+    $('downloadZip').hidden = files < 2;
+    $('downloadZip').textContent = `Download as zip (${files.toLocaleString()})`;
+    $('downloadEach').hidden = files === 0;
+    $('downloadEach').textContent = files > 1 ? 'Download separately' : 'Download';
+    $('downloadEach').classList.toggle('primary', files === 1);
+    $('downloadEach').disabled = files > MAX_SEPARATE;
+    $('downloadEach').title = files > MAX_SEPARATE ? `Over ${MAX_SEPARATE} files — use the zip` : '';
     $('clearAll').hidden = $('inbox').children.length === 0;
+    $('noInbox').style.display = $('inbox').children.length ? 'none' : '';
   }
-  function addItem(el) {
-    $('inbox').prepend(el);
-    $('noInbox').style.display = 'none';
-    updateInboxButtons();
-  }
-  function removeItem(el) {
-    el.remove();
-    for (const [id, f] of received) if (f.el === el) received.delete(id);
-    if (!$('inbox').children.length) $('noInbox').style.display = '';
-    updateInboxButtons();
-  }
-  function triggerDownload(href, name) {
-    const a = document.createElement('a');
-    a.href = href; a.download = name || '';
-    document.body.appendChild(a); a.click(); a.remove();
-  }
-  const fileUrl = (id) => `/api/file/${id}?peer=${encodeURIComponent(myId)}`;
-  $('downloadEach').onclick = async () => {
-    // Oldest first, matching the order they arrived. A short gap between files keeps
-    // browsers from dropping downloads; Chrome may ask once to allow multiple downloads.
-    const list = [...received.entries()];
+  async function downloadSeparately(list) {
+    // list: [[transferId, index]]. A short gap keeps browsers from dropping downloads;
+    // Chrome may ask once to allow multiple downloads. Folders can't be recreated this way.
     if (list.length > 1) toast(`Downloading ${list.length} files — allow multiple downloads if your browser asks`);
     for (let i = 0; i < list.length; i++) {
-      const [id, f] = list[i];
-      triggerDownload(fileUrl(id), f.name);
+      triggerDownload(fileUrl(...list[i]));
       if (i < list.length - 1) await new Promise((r) => setTimeout(r, 600));
     }
+  }
+  $('downloadEach').onclick = () => {
+    const list = [];
+    for (const inc of liveIncoming()) inc.offer.files.forEach((_, i) => list.push([inc.offer.transferId, i]));
+    if (list.length > MAX_SEPARATE) return toast(`Over ${MAX_SEPARATE} files — use the zip`, true);
+    downloadSeparately(list);
   };
   $('downloadZip').onclick = () => {
-    const list = [...received.entries()];
-    if (list.length < 2) return;
-    const total = list.reduce((s, [, f]) => s + f.size, 0);
-    if (total > 4000 * 1024 * 1024) return toast('Over 4 GB in total — download the files one by one', true);
-    const ids = list.map(([id]) => id).join(',');
-    triggerDownload(`/api/zip?peer=${encodeURIComponent(myId)}&ids=${ids}`);
-    toast(`Zipping ${list.length} files (${fmtSize(total)})…`);
+    const live = liveIncoming();
+    if (live.length) triggerDownload(zipUrl(live.map((i) => i.offer.transferId)));
   };
   $('clearAll').onclick = () => {
-    for (const id of received.keys()) {
-      fetch(`/api/file/${id}?peer=${encodeURIComponent(myId)}`, { method: 'DELETE' }).catch(() => {});
-    }
-    received.clear();
+    const live = liveIncoming().map((i) => i.offer.transferId);
+    if (live.length) api('/api/cancel', { transferId: live }).catch(() => {});
+    incoming.clear();
     $('inbox').textContent = '';
-    $('noInbox').style.display = '';
     updateInboxButtons();
   };
+
   function addText(d) {
     const el = document.createElement('div');
     el.className = 'card item';
@@ -534,32 +734,87 @@
       a.innerHTML = '<button style="width:100%">Open link</button>';
       el.querySelector('.btns').prepend(a);
     }
-    el.querySelector('[data-a=copy]').onclick = async () => toast((await copyText(d.text)) ? 'Copied to clipboard' : 'Copy failed — select the text manually', false);
-    el.querySelector('[data-a=x]').onclick = () => removeItem(el);
-    addItem(el);
+    el.querySelector('[data-a=copy]').onclick = async () => toast((await copyText(d.text)) ? 'Copied to clipboard' : 'Copy failed — select the text manually');
+    el.querySelector('[data-a=x]').onclick = () => { el.remove(); updateInboxButtons(); };
+    $('inbox').prepend(el);
+    updateInboxButtons();
   }
-  function addFile(d) {
-    const url = `/api/file/${d.fileId}?peer=${encodeURIComponent(myId)}`;
+
+  function onOffer(o) {
+    const known = incoming.get(o.transferId);
+    if (known) { known.live = true; return; } // replayed after a reconnect
+    const paths = o.files.map((f) => f.path);
     const el = document.createElement('div');
     el.className = 'card item';
-    el.innerHTML = `<div class="body"><div class="meta"></div><div class="fname"></div><div class="hint"></div></div>
-      <div class="btns"><a data-a="dl"><button class="primary">Download</button></a><button data-a="x">Dismiss</button></div>`;
-    el.querySelector('.meta').textContent = `File from ${d.fromName} · ${fmtTime(d.at)}`;
-    el.querySelector('.fname').textContent = d.name;
-    el.querySelector('.hint').textContent = `${fmtSize(d.size)} · kept on the host for 30 min`;
-    const a = el.querySelector('[data-a=dl]');
-    a.href = url; a.download = d.name;
-    if (/^image\/(png|jpe?g|gif|webp|bmp|avif)$/.test(d.type)) {
-      const img = document.createElement('img');
-      img.className = 'thumb'; img.alt = d.name; img.src = url + '&inline';
-      el.querySelector('.body').appendChild(img);
+    el.innerHTML = `<div class="body"><div class="meta"></div><div class="title"></div><div class="state"></div></div>
+      <div class="btns"></div>`;
+    el.querySelector('.meta').textContent = `From ${o.fromName} · ${fmtTime(o.at)}`;
+    el.querySelector('.title').textContent = describeFiles(paths);
+    el.querySelector('.state').textContent = `${fmtSize(o.total)} · downloads stream straight from ${o.fromName}`;
+
+    if (o.files.length > 1) {
+      const det = document.createElement('details');
+      det.className = 'files';
+      det.innerHTML = '<summary></summary><ul></ul>';
+      det.querySelector('summary').textContent = 'Show files';
+      det.addEventListener('toggle', () => {
+        const ul = det.querySelector('ul');
+        if (!det.open || ul.children.length) return;
+        const shown = o.files.slice(0, 500);
+        shown.forEach((f, i) => {
+          const li = document.createElement('li');
+          li.textContent = `${f.path} — ${fmtSize(f.size)}`;
+          const b = document.createElement('button');
+          b.textContent = 'Download';
+          b.onclick = () => { if (incoming.get(o.transferId)?.live) triggerDownload(fileUrl(o.transferId, i)); };
+          li.appendChild(b);
+          ul.appendChild(li);
+        });
+        if (o.files.length > shown.length) {
+          const li = document.createElement('li');
+          li.textContent = `…and ${(o.files.length - shown.length).toLocaleString()} more (in the zip)`;
+          ul.appendChild(li);
+        }
+      }, { once: false });
+      el.querySelector('.body').appendChild(det);
     }
-    el.querySelector('[data-a=x]').onclick = () => {
-      fetch(url, { method: 'DELETE' }).catch(() => {});
-      removeItem(el);
-    };
-    received.set(d.fileId, { name: d.name, size: d.size, el });
-    addItem(el);
+
+    const btns = el.querySelector('.btns');
+    const mk = (label, cls, fn) => { const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; btns.appendChild(b); return b; };
+    if (o.files.length === 1) {
+      mk('Download', 'primary', () => triggerDownload(fileUrl(o.transferId, 0)));
+    } else {
+      mk('Download as zip', 'primary', () => triggerDownload(zipUrl([o.transferId])));
+      const sep = mk('Download separately', '', () => downloadSeparately(o.files.map((_, i) => [o.transferId, i])));
+      if (o.files.length > MAX_SEPARATE) { sep.disabled = true; sep.title = `Over ${MAX_SEPARATE} files — use the zip`; }
+    }
+    mk('Decline', '', () => {
+      const inc = incoming.get(o.transferId);
+      if (inc && inc.live) api('/api/cancel', { transferId: o.transferId }).catch(() => {});
+      incoming.delete(o.transferId);
+      el.remove();
+      updateInboxButtons();
+    });
+
+    incoming.set(o.transferId, { offer: o, el, live: true });
+    $('inbox').prepend(el);
+    updateInboxButtons();
+    toast(`${describeFiles(paths)} from ${o.fromName}`);
+    bumpUnread();
+  }
+
+  function markIncomingDead(tid, why) {
+    const inc = incoming.get(tid);
+    if (!inc || !inc.live) return;
+    inc.live = false;
+    inc.el.classList.add('dead');
+    const st = inc.el.querySelector('.state');
+    st.textContent = why; st.className = 'state bad';
+    inc.el.querySelectorAll('.btns button, details button').forEach((b) => {
+      if (b.textContent === 'Decline') b.textContent = 'Dismiss';
+      else b.disabled = true;
+    });
+    updateInboxButtons();
   }
 
   // ---------- speed test ----------
@@ -585,7 +840,6 @@
     times.sort((a, b) => a - b);
     return times[Math.floor(times.length / 2)]; // median; first request is often slow
   }
-
   async function testDownload() {
     const ctrl = new AbortController();
     const res = await fetch(`/api/speed/down?bytes=${1024 ** 3}&r=${Math.random()}`, { cache: 'no-store', signal: ctrl.signal });
@@ -604,7 +858,6 @@
     } finally { ctrl.abort(); }
     return mbps(bytes, performance.now() - t0);
   }
-
   function uploadChunk(blob, onProgress) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -638,7 +891,6 @@
     }
     return mbps(done, performance.now() - t0);
   }
-
   $('speedBtn').onclick = async () => {
     const btn = $('speedBtn');
     btn.disabled = true;
@@ -669,12 +921,28 @@
     renameTimer = setTimeout(async () => {
       const v = $('myName').value.trim();
       if (!v || v === myName) return;
-      myName = v; store.set('landrop.name', v);
-      if (myId) { try { await api('/api/rename', { id: myId, name: v }); } catch {} }
+      myName = v; local.set('landrop.name', v);
+      try { await api('/api/rename', { name: v }); } catch {}
     }, 400);
   });
 
-  connect();
+  // ---------- start ----------
+  // A duplicated tab copies sessionStorage, so it would share this tab's identity.
+  // Ask other tabs whether they already use it; if one answers, take a new one.
+  function checkDuplicateTab() {
+    return new Promise((resolve) => {
+      let bc;
+      try { bc = new BroadcastChannel('landrop'); } catch { return resolve(); }
+      bc.onmessage = (e) => {
+        if (e.data && e.data.q === myId) bc.postMessage({ a: myId });
+        else if (e.data && e.data.a === myId && !resolved) { newIdentity(); }
+      };
+      let resolved = false;
+      bc.postMessage({ q: myId });
+      setTimeout(() => { resolved = true; resolve(); }, 200);
+    });
+  }
+  checkDuplicateTab().then(connect);
 })();
 </script>
 </body>
