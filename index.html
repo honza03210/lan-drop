@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LAN Drop</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --text: #16181d;
+    --muted: #5d6470;
+    --border: #dde0e6;
+    --accent: #2f6fed;
+    --accent-text: #ffffff;
+    --accent-soft: #e3ecfd;
+    --ok: #1d8a4e;
+    --danger: #c7372f;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111317;
+      --surface: #1a1d23;
+      --surface-2: #23272f;
+      --text: #e8eaee;
+      --muted: #9aa1ad;
+      --border: #2e333c;
+      --accent: #5b8ff9;
+      --accent-text: #0b1020;
+      --accent-soft: #1d2a45;
+      --ok: #45c47e;
+      --danger: #f0736b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .dot.on { background: var(--ok); }
+  .me { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .me input {
+    font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; width: 180px;
+  }
+  section { margin-top: 28px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+  .connect { padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; }
+  .connect code {
+    font: 13px ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--surface-2);
+    padding: 4px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+  }
+  .connect code:hover { border-color: var(--border); }
+  .peers { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .peer { padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; transition: border-color .15s, background .15s; }
+  .peer.drag { border-color: var(--accent); background: var(--accent-soft); }
+  .peer-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .icon {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; flex: none;
+  }
+  .icon svg { width: 22px; height: 22px; }
+  .peer-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .peer-dev { font-size: 12px; color: var(--muted); }
+  .actions { display: flex; gap: 8px; }
+  button {
+    font: inherit; font-size: 14px; border-radius: 8px; padding: 7px 12px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  }
+  button:hover { filter: brightness(.97); }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+  button:disabled { opacity: .5; cursor: default; }
+  .actions button { flex: 1; }
+  .progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; display: none; }
+  .progress.show { display: block; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+  .progress-label { font-size: 12px; color: var(--muted); display: none; }
+  .progress-label.show { display: block; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+  .inbox { display: flex; flex-direction: column; gap: 10px; }
+  .item { padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; }
+  .item .body { flex: 1; min-width: 0; }
+  .item .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .item pre {
+    margin: 0; white-space: pre-wrap; word-break: break-word; font: 14px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+    max-height: 220px; overflow: auto; background: var(--surface-2); padding: 8px 10px; border-radius: 8px;
+  }
+  .item .fname { font-weight: 600; word-break: break-all; }
+  .item img.thumb { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 8px; }
+  .item .btns { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .item .btns a { text-decoration: none; }
+  .item .btns a button { width: 100%; }
+  dialog {
+    border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text);
+    padding: 0; width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog form { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  dialog h3 { margin: 0; font-size: 16px; }
+  textarea {
+    font: 14px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-height: 160px; resize: vertical; width: 100%;
+  }
+  .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .toasts { position: fixed; bottom: 16px; left: 16px; right: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; z-index: 10; }
+  .toast {
+    background: var(--text); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 14px;
+    box-shadow: var(--shadow); max-width: 100%; animation: in .2s ease-out;
+  }
+  .toast.err { background: var(--danger); color: #fff; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } }
+  @media (max-width: 560px) {
+    .me { margin-left: 0; width: 100%; }
+    .me input { flex: 1; width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>LAN Drop</h1>
+    <span class="status"><span class="dot" id="dot"></span><span id="statusText">Connecting…</span></span>
+    <label class="me">You are
+      <input id="myName" maxlength="60" autocomplete="off" spellcheck="false">
+    </label>
+  </header>
+
+  <div class="card connect" id="connect">
+    <span>Open this on other devices on the same network:</span>
+    <span id="addrs" class="hint">…</span>
+  </div>
+
+  <section>
+    <h2>Devices nearby</h2>
+    <div class="peers" id="peers"></div>
+    <div class="card empty" id="noPeers">No other devices yet. Open one of the addresses above on another phone, tablet or computer.</div>
+    <p class="hint">Drop files onto a device to send them. Paste (Ctrl/⌘+V) anywhere to send clipboard contents.</p>
+  </section>
+
+  <section>
+    <h2>Received</h2>
+    <div class="inbox" id="inbox"></div>
+    <div class="card empty" id="noInbox">Nothing received yet.</div>
+  </section>
+</div>
+
+<dialog id="textDialog">
+  <form method="dialog" id="textForm">
+    <h3 id="textTitle">Send text</h3>
+    <textarea id="textInput" placeholder="Type or paste text, a link, a code snippet…"></textarea>
+    <div class="row">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button value="send" class="primary" id="textSend">Send</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="pickDialog">
+  <form method="dialog">
+    <h3 id="pickTitle">Send to…</h3>
+    <div id="pickList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="row"><button value="cancel">Cancel</button></div>
+  </form>
+</dialog>
+
+<input type="file" id="fileInput" multiple hidden>
+<div class="toasts" id="toasts"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- identity ----------
+  const ADJ = ['Swift','Quiet','Brave','Sunny','Lucky','Clever','Calm','Bright','Bold','Gentle','Happy','Mellow','Nimble','Witty','Cosmic','Rapid'];
+  const ANIMAL = ['Otter','Fox','Panda','Falcon','Koala','Lynx','Heron','Badger','Dolphin','Tiger','Owl','Moose','Gecko','Raven','Wolf','Beaver'];
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  function detectDevice() {
+    const ua = navigator.userAgent;
+    let os = 'Device', kind = 'desktop';
+    if (/iPad|Macintosh/.test(ua) && navigator.maxTouchPoints > 1) { os = 'iPad'; kind = 'tablet'; }
+    else if (/iPhone|iPod/.test(ua)) { os = 'iPhone'; kind = 'phone'; }
+    else if (/Android/.test(ua)) { os = 'Android'; kind = /Mobile/.test(ua) ? 'phone' : 'tablet'; }
+    else if (/Windows/.test(ua)) os = 'Windows';
+    else if (/Mac OS X/.test(ua)) os = 'Mac';
+    else if (/CrOS/.test(ua)) os = 'ChromeOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+    const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+      : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
+    return `${kind}|${os}${browser ? ' · ' + browser : ''}`;
+  }
+  let myName = store.get('landrop.name');
+  if (!myName) {
+    myName = `${ADJ[Math.random() * ADJ.length | 0]} ${ANIMAL[Math.random() * ANIMAL.length | 0]}`;
+    store.set('landrop.name', myName);
+  }
+  const myDevice = detectDevice();
+  $('myName').value = myName;
+
+  // ---------- state ----------
+  let myId = null;
+  let peers = [];
+  let es = null;
+  let unread = 0;
+
+  // ---------- helpers ----------
+  function toast(msg, err) {
+    const t = document.createElement('div');
+    t.className = 'toast' + (err ? ' err' : '');
+    t.textContent = msg;
+    $('toasts').appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+  }
+  function fmtSize(n) {
+    if (n < 1024) return n + ' B';
+    const u = ['KB','MB','GB','TB']; let i = -1;
+    do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+    return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
+  }
+  function fmtTime(t) { return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  async function copyText(text) {
+    // navigator.clipboard only works on https/localhost; fall back for plain http LAN addresses.
+    try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    ta.remove(); return ok;
+  }
+  async function api(path, body) {
+    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Request failed');
+    return j;
+  }
+  function bumpUnread() {
+    if (!document.hidden) return;
+    unread++; document.title = `(${unread}) LAN Drop`;
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { unread = 0; document.title = 'LAN Drop'; } });
+
+  const ICONS = {
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
+    tablet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="2.5" width="16" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
+    desktop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
+  };
+
+  // ---------- connection ----------
+  function connect() {
+    if (es) es.close();
+    const q = new URLSearchParams({ name: myName, device: myDevice });
+    es = new EventSource('/events?' + q);
+    es.addEventListener('hello', (e) => {
+      const d = JSON.parse(e.data);
+      myId = d.id;
+      setStatus(true);
+      renderAddrs(d.addresses);
+    });
+    es.addEventListener('peers', (e) => { peers = JSON.parse(e.data).filter((p) => p.id !== myId); renderPeers(); });
+    es.addEventListener('text', (e) => { const d = JSON.parse(e.data); addText(d); toast(`Text from ${d.fromName}`); bumpUnread(); });
+    es.addEventListener('file', (e) => { const d = JSON.parse(e.data); addFile(d); toast(`${d.name} from ${d.fromName}`); bumpUnread(); });
+    es.onerror = () => { setStatus(false); }; // EventSource reconnects automatically
+  }
+  function setStatus(on) {
+    $('dot').classList.toggle('on', on);
+    $('statusText').textContent = on ? 'Online' : 'Reconnecting…';
+  }
+  function renderAddrs(addrs) {
+    const box = $('addrs');
+    box.textContent = '';
+    box.className = '';
+    if (!addrs.length) { box.textContent = 'No network address found — is this computer on Wi-Fi/Ethernet?'; box.className = 'hint'; return; }
+    for (const a of addrs) {
+      const c = document.createElement('code');
+      c.textContent = a; c.title = 'Click to copy';
+      c.onclick = async () => toast((await copyText(a)) ? 'Address copied' : 'Copy failed', false);
+      box.appendChild(c); box.appendChild(document.createTextNode(' '));
+    }
+  }
+
+  // ---------- peers ----------
+  function renderPeers() {
+    const grid = $('peers');
+    $('noPeers').style.display = peers.length ? 'none' : '';
+    const existing = new Map([...grid.children].map((el) => [el.dataset.id, el]));
+    for (const p of peers) {
+      let el = existing.get(p.id);
+      if (!el) { el = peerCard(p); grid.appendChild(el); }
+      existing.delete(p.id);
+      const [kind, label] = p.device.split('|');
+      el.querySelector('.icon').innerHTML = ICONS[kind] || ICONS.desktop;
+      el.querySelector('.peer-name').textContent = p.name;
+      el.querySelector('.peer-dev').textContent = label || '';
+    }
+    for (const el of existing.values()) el.remove();
+  }
+  function peerCard(p) {
+    const el = document.createElement('div');
+    el.className = 'card peer';
+    el.dataset.id = p.id;
+    el.innerHTML = `
+      <div class="peer-head"><div class="icon"></div>
+        <div style="min-width:0"><div class="peer-name"></div><div class="peer-dev"></div></div></div>
+      <div class="actions"><button class="primary" data-a="file">Send files</button><button data-a="text">Send text</button></div>
+      <div class="progress"><div></div></div><div class="progress-label"></div>`;
+    el.querySelector('[data-a=file]').onclick = () => pickFiles(p.id);
+    el.querySelector('[data-a=text]').onclick = () => openText(p.id);
+    let depth = 0;
+    el.addEventListener('dragenter', (e) => { e.preventDefault(); depth++; el.classList.add('drag'); });
+    el.addEventListener('dragover', (e) => e.preventDefault());
+    el.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; el.classList.remove('drag'); } });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault(); depth = 0; el.classList.remove('drag');
+      if (e.dataTransfer.files.length) sendFiles(p.id, [...e.dataTransfer.files]);
+      else { const t = e.dataTransfer.getData('text'); if (t) sendText(p.id, t); }
+    });
+    return el;
+  }
+  const peerName = (id) => (peers.find((p) => p.id === id) || {}).name || 'device';
+
+  // Prevent the browser from opening files dropped outside a card.
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  // ---------- sending ----------
+  let fileTarget = null;
+  function pickFiles(id) { fileTarget = id; $('fileInput').value = ''; $('fileInput').click(); }
+  $('fileInput').onchange = () => { if (fileTarget && $('fileInput').files.length) sendFiles(fileTarget, [...$('fileInput').files]); };
+
+  const queues = new Map(); // peerId -> promise chain, so files to one device go one at a time
+  function sendFiles(to, list) {
+    const prev = queues.get(to) || Promise.resolve();
+    const next = prev.then(async () => {
+      for (let i = 0; i < list.length; i++) {
+        try { await uploadOne(to, list[i], i + 1, list.length); }
+        catch (err) { toast(`${list[i].name}: ${err.message}`, true); }
+      }
+    });
+    queues.set(to, next);
+  }
+  function uploadOne(to, file, n, total) {
+    return new Promise((resolve, reject) => {
+      const card = document.querySelector(`.peer[data-id="${to}"]`);
+      const bar = card && card.querySelector('.progress');
+      const label = card && card.querySelector('.progress-label');
+      const show = (on) => { if (bar) { bar.classList.toggle('show', on); label.classList.toggle('show', on); } };
+      const q = new URLSearchParams({ from: myId, to, name: file.name || 'pasted-file', type: file.type || '' });
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/file?' + q);
+      xhr.upload.onprogress = (e) => {
+        if (!bar || !e.lengthComputable) return;
+        show(true);
+        const pct = e.loaded / e.total * 100;
+        bar.firstElementChild.style.width = pct + '%';
+        label.textContent = `${total > 1 ? `(${n}/${total}) ` : ''}${file.name} — ${fmtSize(e.loaded)} / ${fmtSize(e.total)}`;
+      };
+      xhr.onload = () => {
+        show(false);
+        if (xhr.status === 200) { toast(`Sent ${file.name} to ${peerName(to)}`); resolve(); }
+        else { let m = 'Upload failed'; try { m = JSON.parse(xhr.responseText).error || m; } catch {} reject(new Error(m)); }
+      };
+      xhr.onerror = () => { show(false); reject(new Error('Network error')); };
+      xhr.send(file);
+    });
+  }
+  async function sendText(to, text) {
+    try { await api('/api/text', { from: myId, to, text }); toast(`Text sent to ${peerName(to)}`); }
+    catch (err) { toast(err.message, true); }
+  }
+
+  // text dialog
+  let textTarget = null;
+  function openText(id, prefill = '') {
+    textTarget = id;
+    $('textTitle').textContent = `Send text to ${peerName(id)}`;
+    $('textInput').value = prefill;
+    $('textDialog').returnValue = '';
+    $('textDialog').showModal();
+    $('textInput').focus();
+  }
+  $('textDialog').addEventListener('close', () => {
+    const v = $('textInput').value;
+    if ($('textDialog').returnValue === 'send' && v.trim() && textTarget) sendText(textTarget, v);
+  });
+  $('textInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('textDialog').close('send'); }
+  });
+
+  // target picker (for paste)
+  function chooseTarget(title) {
+    return new Promise((resolve) => {
+      if (!peers.length) { toast('No other devices online', true); return resolve(null); }
+      if (peers.length === 1) return resolve(peers[0].id);
+      $('pickTitle').textContent = title;
+      const list = $('pickList'); list.textContent = '';
+      let chosen = null;
+      for (const p of peers) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = p.name;
+        b.onclick = () => { chosen = p.id; $('pickDialog').close(); };
+        list.appendChild(b);
+      }
+      $('pickDialog').addEventListener('close', () => resolve(chosen), { once: true });
+      $('pickDialog').showModal();
+    });
+  }
+  document.addEventListener('paste', async (e) => {
+    if (e.target.closest('input, textarea, dialog')) return;
+    const fileList = [...(e.clipboardData?.files || [])];
+    const text = e.clipboardData?.getData('text/plain');
+    if (!fileList.length && !text) return;
+    e.preventDefault();
+    const to = await chooseTarget(fileList.length ? `Send ${fileList.length} pasted file(s) to…` : 'Send pasted text to…');
+    if (!to) return;
+    if (fileList.length) sendFiles(to, fileList); else openText(to, text);
+  });
+
+  // ---------- receiving ----------
+  function addItem(el) {
+    $('inbox').prepend(el);
+    $('noInbox').style.display = 'none';
+  }
+  function removeItem(el) {
+    el.remove();
+    if (!$('inbox').children.length) $('noInbox').style.display = '';
+  }
+  function addText(d) {
+    const el = document.createElement('div');
+    el.className = 'card item';
+    el.innerHTML = `<div class="body"><div class="meta"></div><pre></pre></div>
+      <div class="btns"><button class="primary" data-a="copy">Copy</button><button data-a="x">Dismiss</button></div>`;
+    el.querySelector('.meta').textContent = `Text from ${d.fromName} · ${fmtTime(d.at)}`;
+    el.querySelector('pre').textContent = d.text;
+    if (/^https?:\/\/\S+$/.test(d.text.trim())) {
+      const a = document.createElement('a');
+      a.href = d.text.trim(); a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.innerHTML = '<button style="width:100%">Open link</button>';
+      el.querySelector('.btns').prepend(a);
+    }
+    el.querySelector('[data-a=copy]').onclick = async () => toast((await copyText(d.text)) ? 'Copied to clipboard' : 'Copy failed — select the text manually', false);
+    el.querySelector('[data-a=x]').onclick = () => removeItem(el);
+    addItem(el);
+  }
+  function addFile(d) {
+    const url = `/api/file/${d.fileId}?peer=${encodeURIComponent(myId)}`;
+    const el = document.createElement('div');
+    el.className = 'card item';
+    el.innerHTML = `<div class="body"><div class="meta"></div><div class="fname"></div><div class="hint"></div></div>
+      <div class="btns"><a data-a="dl"><button class="primary">Download</button></a><button data-a="x">Dismiss</button></div>`;
+    el.querySelector('.meta').textContent = `File from ${d.fromName} · ${fmtTime(d.at)}`;
+    el.querySelector('.fname').textContent = d.name;
+    el.querySelector('.hint').textContent = `${fmtSize(d.size)} · kept on the host for 30 min`;
+    const a = el.querySelector('[data-a=dl]');
+    a.href = url; a.download = d.name;
+    if (/^image\/(png|jpe?g|gif|webp|bmp|avif)$/.test(d.type)) {
+      const img = document.createElement('img');
+      img.className = 'thumb'; img.alt = d.name; img.src = url + '&inline';
+      el.querySelector('.body').appendChild(img);
+    }
+    el.querySelector('[data-a=x]').onclick = () => {
+      fetch(url, { method: 'DELETE' }).catch(() => {});
+      removeItem(el);
+    };
+    addItem(el);
+  }
+
+  // ---------- rename ----------
+  let renameTimer;
+  $('myName').addEventListener('input', () => {
+    clearTimeout(renameTimer);
+    renameTimer = setTimeout(async () => {
+      const v = $('myName').value.trim();
+      if (!v || v === myName) return;
+      myName = v; store.set('landrop.name', v);
+      if (myId) { try { await api('/api/rename', { id: myId, name: v }); } catch {} }
+    }, 400);
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>
