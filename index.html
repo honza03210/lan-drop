@@ -56,6 +56,19 @@
   }
   section { margin-top: 28px; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .section-head h2 { margin: 0; margin-right: auto; }
+  .section-head button { padding: 5px 10px; font-size: 13px; }
+  .speed { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--surface-2); border-radius: 10px; padding: 12px; min-width: 0; }
+  .stat .label { font-size: 12px; color: var(--muted); }
+  .stat .value { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat .unit { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+  .stat.active .value { color: var(--accent); }
+  .speed-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .speed-foot .hint { flex: 1; min-width: 200px; }
+  @media (max-width: 420px) { .stat .value { font-size: 19px; } .stat { padding: 10px; } }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
   .connect { padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; }
   .connect code {
@@ -151,9 +164,28 @@
   </section>
 
   <section>
-    <h2>Received</h2>
+    <div class="section-head">
+      <h2>Received</h2>
+      <button id="downloadAll" class="primary" hidden>Download all</button>
+      <button id="clearAll" hidden>Clear all</button>
+    </div>
     <div class="inbox" id="inbox"></div>
     <div class="card empty" id="noInbox">Nothing received yet.</div>
+  </section>
+
+  <section>
+    <h2>Speed test</h2>
+    <div class="card speed">
+      <div class="stats">
+        <div class="stat" id="statPing"><div class="label">Ping</div><div class="value">–<span class="unit">ms</span></div></div>
+        <div class="stat" id="statDown"><div class="label">Download</div><div class="value">–<span class="unit">Mbps</span></div></div>
+        <div class="stat" id="statUp"><div class="label">Upload</div><div class="value">–<span class="unit">Mbps</span></div></div>
+      </div>
+      <div class="speed-foot">
+        <span class="hint" id="speedHint">Measures the link between this device and the host computer running LAN Drop. A transfer between two devices runs at roughly the slower of the sender's upload and the receiver's download.</span>
+        <button class="primary" id="speedBtn">Run speed test</button>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -431,14 +463,51 @@
   });
 
   // ---------- receiving ----------
+  const received = new Map(); // fileId -> { name, size, el }
+  function updateInboxButtons() {
+    const n = received.size;
+    $('downloadAll').hidden = n === 0;
+    $('downloadAll').textContent = n > 1 ? `Download all (${n})` : 'Download';
+    $('clearAll').hidden = $('inbox').children.length === 0;
+  }
   function addItem(el) {
     $('inbox').prepend(el);
     $('noInbox').style.display = 'none';
+    updateInboxButtons();
   }
   function removeItem(el) {
     el.remove();
+    for (const [id, f] of received) if (f.el === el) received.delete(id);
     if (!$('inbox').children.length) $('noInbox').style.display = '';
+    updateInboxButtons();
   }
+  function triggerDownload(href, name) {
+    const a = document.createElement('a');
+    a.href = href; a.download = name || '';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  $('downloadAll').onclick = () => {
+    const list = [...received.entries()];
+    if (!list.length) return;
+    if (list.length === 1) {
+      const [id, f] = list[0];
+      return triggerDownload(`/api/file/${id}?peer=${encodeURIComponent(myId)}`, f.name);
+    }
+    const total = list.reduce((s, [, f]) => s + f.size, 0);
+    if (total > 4000 * 1024 * 1024) return toast('Over 4 GB in total — download the files one by one', true);
+    const ids = list.map(([id]) => id).join(',');
+    triggerDownload(`/api/zip?peer=${encodeURIComponent(myId)}&ids=${ids}`);
+    toast(`Zipping ${list.length} files (${fmtSize(total)})…`);
+  };
+  $('clearAll').onclick = () => {
+    for (const id of received.keys()) {
+      fetch(`/api/file/${id}?peer=${encodeURIComponent(myId)}`, { method: 'DELETE' }).catch(() => {});
+    }
+    received.clear();
+    $('inbox').textContent = '';
+    $('noInbox').style.display = '';
+    updateInboxButtons();
+  };
   function addText(d) {
     const el = document.createElement('div');
     el.className = 'card item';
@@ -476,8 +545,109 @@
       fetch(url, { method: 'DELETE' }).catch(() => {});
       removeItem(el);
     };
+    received.set(d.fileId, { name: d.name, size: d.size, el });
     addItem(el);
   }
+
+  // ---------- speed test ----------
+  // Each phase runs for a fixed time so it finishes quickly on Wi-Fi and still saturates gigabit.
+  const PHASE_MS = 5000;
+  function setStat(id, value, unit, active) {
+    const s = $(id);
+    s.classList.toggle('active', !!active);
+    s.querySelector('.value').innerHTML = '';
+    s.querySelector('.value').append(value, Object.assign(document.createElement('span'), { className: 'unit', textContent: unit }));
+  }
+  const mbps = (bytes, ms) => (bytes * 8 / 1e6) / (ms / 1000);
+  const fmtMbps = (v) => (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2));
+
+  async function testPing() {
+    const times = [];
+    for (let i = 0; i < 12; i++) {
+      const t0 = performance.now();
+      await fetch('/api/speed/ping?r=' + Math.random(), { cache: 'no-store' });
+      times.push(performance.now() - t0);
+      setStat('statPing', Math.min(...times).toFixed(0), 'ms', true);
+    }
+    times.sort((a, b) => a - b);
+    return times[Math.floor(times.length / 2)]; // median; first request is often slow
+  }
+
+  async function testDownload() {
+    const ctrl = new AbortController();
+    const res = await fetch(`/api/speed/down?bytes=${1024 ** 3}&r=${Math.random()}`, { cache: 'no-store', signal: ctrl.signal });
+    const reader = res.body.getReader();
+    const t0 = performance.now();
+    let bytes = 0, last = 0;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        bytes += value.length;
+        const now = performance.now();
+        if (now - last > 150) { last = now; setStat('statDown', fmtMbps(mbps(bytes, now - t0)), 'Mbps', true); }
+        if (now - t0 > PHASE_MS) break;
+      }
+    } finally { ctrl.abort(); }
+    return mbps(bytes, performance.now() - t0);
+  }
+
+  function uploadChunk(blob, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/speed/up');
+      xhr.upload.onprogress = (e) => onProgress(e.loaded, xhr);
+      xhr.onload = () => resolve(blob.size);
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.onabort = () => resolve(null);
+      xhr.send(blob);
+    });
+  }
+  async function testUpload() {
+    const MB = 1024 * 1024;
+    const base = new Uint8Array(MB);
+    for (let i = 0; i < MB; i += 65536) crypto.getRandomValues(base.subarray(i, i + 65536));
+    const t0 = performance.now();
+    let done = 0, size = 1, last = 0;
+    while (performance.now() - t0 < PHASE_MS) {
+      // Grow the payload so per-request overhead doesn't dominate on fast links.
+      const blob = new Blob(Array(size).fill(base), { type: 'application/octet-stream' });
+      let partial = 0;
+      const sent = await uploadChunk(blob, (loaded, xhr) => {
+        partial = loaded;
+        const now = performance.now();
+        if (now - last > 150) { last = now; setStat('statUp', fmtMbps(mbps(done + loaded, now - t0)), 'Mbps', true); }
+        if (now - t0 > PHASE_MS) xhr.abort();
+      });
+      done += sent == null ? partial : sent;
+      if (sent == null) break;
+      size = Math.min(size * 2, 64);
+    }
+    return mbps(done, performance.now() - t0);
+  }
+
+  $('speedBtn').onclick = async () => {
+    const btn = $('speedBtn');
+    btn.disabled = true;
+    for (const [id, u] of [['statPing', 'ms'], ['statDown', 'Mbps'], ['statUp', 'Mbps']]) setStat(id, '–', u);
+    try {
+      btn.textContent = 'Testing ping…';
+      setStat('statPing', (await testPing()).toFixed(0), 'ms');
+      btn.textContent = 'Testing download…';
+      setStat('statDown', fmtMbps(await testDownload()), 'Mbps');
+      btn.textContent = 'Testing upload…';
+      setStat('statUp', fmtMbps(await testUpload()), 'Mbps');
+      if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+        toast('You are on the host itself, so this measures this computer, not the network');
+      }
+    } catch (err) {
+      toast('Speed test failed: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run again';
+      for (const id of ['statPing', 'statDown', 'statUp']) $(id).classList.remove('active');
+    }
+  };
 
   // ---------- rename ----------
   let renameTimer;

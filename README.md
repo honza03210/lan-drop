@@ -20,6 +20,8 @@ Set a different port with `PORT=9000 node server.js`.
 - Send files by button or drag-and-drop, with upload progress
 - Send text, or paste (Ctrl/⌘+V) anywhere to send clipboard contents
 - Received items: download, image preview, copy text, open links
+- **Download all** received files as a single zip (built on the fly, up to 4 GB), or **Clear all**
+- **Speed test**: ping, download and upload between this device and the host computer
 - Files are relayed through a temp folder on the host and removed after 30 minutes, on dismiss, or when the server stops
 
 ## How it works

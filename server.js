@@ -7,12 +7,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
+const { once } = require('events');
 
 const PORT = Number(process.env.PORT) || 8080;
 const FILE_TTL_MS = 30 * 60 * 1000; // uploaded files expire after 30 minutes
 const MAX_TEXT = 1024 * 1024;       // 1 MB of text per message
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'landrop-'));
 const INDEX = path.join(__dirname, 'index.html');
+// Random (incompressible) payload reused for speed-test downloads.
+const SPEED_CHUNK = crypto.randomBytes(1024 * 1024);
+const SPEED_MAX = 1024 * 1024 * 1024; // cap a single speed-test download at 1 GB
 
 /** id -> { id, name, device, res (SSE response), ip } */
 const peers = new Map();
@@ -70,6 +75,112 @@ function clean(s, max = 60) {
 
 function safeFileName(name) {
   return clean(name, 200).replace(/[\\/:*?"<>|]/g, '_') || 'file';
+}
+
+// ---- ZIP (store, no compression) for "Download all" --------------------------
+// CRC-32 is computed while a file uploads, so a zip can be streamed with a known
+// Content-Length. zlib.crc32 exists on Node 20.15+/22.2+; older Node uses the table.
+const CRC_TABLE = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32(buf, prev = 0) {
+  if (zlib.crc32) return zlib.crc32(buf, prev);
+  let c = prev ^ -1;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+function dosDateTime(ms) {
+  const d = new Date(ms);
+  return {
+    time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+    date: ((Math.max(d.getFullYear(), 1980) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+  };
+}
+
+/** Give duplicate names a " (2)" suffix so entries don't overwrite each other when extracted. */
+function uniqueNames(list) {
+  const seen = new Set();
+  return list.map((f) => {
+    let name = f.name;
+    const dot = name.lastIndexOf('.');
+    const base = dot > 0 ? name.slice(0, dot) : name;
+    const ext = dot > 0 ? name.slice(dot) : '';
+    for (let n = 2; seen.has(name.toLowerCase()); n++) name = `${base} (${n})${ext}`;
+    seen.add(name.toLowerCase());
+    return { ...f, zipName: Buffer.from(name, 'utf8') };
+  });
+}
+
+async function streamZip(res, list, zipName) {
+  const entries = uniqueNames(list);
+  const total =
+    entries.reduce((s, e) => s + 30 + e.zipName.length + e.size + 46 + e.zipName.length, 0) + 22;
+  if (total > 0xffffffff || entries.length > 0xffff) {
+    return json(res, 413, { error: 'Too large to zip (over 4 GB) — download the files one by one' });
+  }
+  res.writeHead(200, {
+    'Content-Type': 'application/zip',
+    'Content-Length': total,
+    'Content-Disposition': `attachment; filename="${zipName}"`,
+    'Cache-Control': 'no-store',
+  });
+
+  const write = async (buf) => { if (!res.write(buf)) await once(res, 'drain'); };
+  const central = [];
+  let offset = 0;
+  for (const e of entries) {
+    const { time, date } = dosDateTime(e.at);
+    const h = Buffer.alloc(30);
+    h.writeUInt32LE(0x04034b50, 0);
+    h.writeUInt16LE(20, 4);       // version needed
+    h.writeUInt16LE(0x0800, 6);   // flag: UTF-8 names
+    h.writeUInt16LE(0, 8);        // method: store
+    h.writeUInt16LE(time, 10);
+    h.writeUInt16LE(date, 12);
+    h.writeUInt32LE(e.crc, 14);
+    h.writeUInt32LE(e.size, 18);
+    h.writeUInt32LE(e.size, 22);
+    h.writeUInt16LE(e.zipName.length, 26);
+    h.writeUInt16LE(0, 28);
+    await write(h);
+    await write(e.zipName);
+    for await (const chunk of fs.createReadStream(e.path)) {
+      if (res.destroyed) return;
+      await write(chunk);
+    }
+
+    const c = Buffer.alloc(46);
+    c.writeUInt32LE(0x02014b50, 0);
+    c.writeUInt16LE(20, 4);       // version made by
+    c.writeUInt16LE(20, 6);
+    c.writeUInt16LE(0x0800, 8);
+    c.writeUInt16LE(0, 10);
+    c.writeUInt16LE(time, 12);
+    c.writeUInt16LE(date, 14);
+    c.writeUInt32LE(e.crc, 16);
+    c.writeUInt32LE(e.size, 20);
+    c.writeUInt32LE(e.size, 24);
+    c.writeUInt16LE(e.zipName.length, 28);
+    c.writeUInt32LE(offset, 42);  // other fields stay zero
+    central.push(c, e.zipName);
+    offset += 30 + e.zipName.length + e.size;
+  }
+  const cd = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(cd.length, 12);
+  end.writeUInt32LE(offset, 16);
+  await write(cd);
+  res.end(end);
 }
 
 function removeFile(id) {
@@ -155,8 +266,9 @@ const server = http.createServer(async (req, res) => {
       const filePath = path.join(TMP_DIR, fileId);
       const out = fs.createWriteStream(filePath);
       let size = 0;
+      let crc = 0;
       let failed = false;
-      req.on('data', (c) => { size += c.length; });
+      req.on('data', (c) => { size += c.length; crc = crc32(c, crc); });
       req.on('aborted', () => { failed = true; out.destroy(); fs.rm(filePath, { force: true }, () => {}); });
       req.pipe(out);
       out.on('error', () => { failed = true; json(res, 500, { error: 'Could not store file' }); });
@@ -169,6 +281,8 @@ const server = http.createServer(async (req, res) => {
           name: safeFileName(url.searchParams.get('name')),
           type: clean(url.searchParams.get('type'), 100) || 'application/octet-stream',
           size,
+          crc,
+          at: Date.now(),
           to: target.id,
           from: sender.id,
           timer: setTimeout(() => removeFile(fileId), FILE_TTL_MS),
@@ -177,6 +291,51 @@ const server = http.createServer(async (req, res) => {
         sse(t.res, 'file', { fileId, name: entry.name, size, type: entry.type, from: sender.id, fromName: sender.name, at: Date.now() });
         json(res, 200, { ok: true, fileId });
       });
+      return;
+    }
+
+    // ---- Speed test (this device <-> host) ---------------------------------
+    if (route === 'GET /api/speed/ping') {
+      res.writeHead(204, { 'Cache-Control': 'no-store' });
+      return res.end();
+    }
+    if (route === 'GET /api/speed/down') {
+      const bytes = Math.min(Math.max(Number(url.searchParams.get('bytes')) || 0, 0), SPEED_MAX);
+      res.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': bytes,
+        'Cache-Control': 'no-store',
+        'Content-Encoding': 'identity',
+      });
+      let left = bytes;
+      while (left > 0 && !res.destroyed) {
+        const chunk = left >= SPEED_CHUNK.length ? SPEED_CHUNK : SPEED_CHUNK.subarray(0, left);
+        left -= chunk.length;
+        if (!res.write(chunk)) await once(res, 'drain').catch(() => {});
+      }
+      return res.end();
+    }
+    if (route === 'POST /api/speed/up') {
+      let bytes = 0;
+      req.on('data', (c) => { bytes += c.length; });
+      req.on('end', () => json(res, 200, { bytes }));
+      return;
+    }
+
+    // ---- Download several files as one zip ---------------------------------
+    if (route === 'GET /api/zip') {
+      const peer = url.searchParams.get('peer');
+      const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean);
+      // Skip files that expired or belong to someone else.
+      const list = ids.map((id) => files.get(id)).filter((f) => f && f.to === peer);
+      if (!list.length) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Files not found or expired');
+      }
+      const d = new Date();
+      const p2 = (n) => String(n).padStart(2, '0');
+      const name = `landrop-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.zip`;
+      await streamZip(res, list, name);
       return;
     }
 
